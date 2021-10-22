@@ -23,88 +23,152 @@
 #define brake_pin A1 
 #define FB_pin A2   //센서(스위치, 가변저항 핀)
 
-#define rx 11
-#define tx 10
+#define rx 10
+#define tx 11
 
 #define motor_out 2
 #define FB_out 3
 #define brake_out 4
 
-SoftwareSerial BTserial(10, 11);
+SoftwareSerial BTserial(rx, tx);
 
 
 
 int motor_speed = 0;
 
-class Motor
+
+int speed_m;
+int switch_brake;
+int switch_FB;
+
+void set_pin()
 {
-  private:
-    int speed_m;
-    int switch_brake;
-    int switch_FB;
-    
-  public:
-  
-    void set_pin()
-    {
-      pinMode(DIR, OUTPUT);
-      pinMode(STP, OUTPUT);
-      pinMode(EN, OUTPUT);
-    }
+  pinMode(DIR, OUTPUT);
+  pinMode(STP, OUTPUT);
+  pinMode(EN, OUTPUT);
+}
 
     
-    void Set_speed(int v)
-    {
-      speed_m = v;
-    }
+void Set_speed(int v)
+{
+  speed_m = v;
+}
 
     
-    void FB_control(int mode)
-    {
-      if(mode == 1)
-      {
-        if(analogRead(FB_pin) >= 1000) //전진 스위치 on
-          digitalWrite(DIR, HIGH);
-        else                           //후진 상태
-          digitalWrite(DIR, LOW);  
-      }
-      if(mode == 2)
-      
-    }
+void FB_control(int mode)
+{
+  if(mode == 1)
+  {
+    if(analogRead(FB_pin) >= 1000) //전진 스위치 on
+      digitalWrite(DIR, HIGH);
+    else                           //후진 상태
+      digitalWrite(DIR, LOW);  
+  }
+  else if (mode == 2)
+    digitalWrite(DIR, HIGH);
+  else if (mode == 3)
+    digitalWrite(DIR, LOW);
+}
 
-    void Brake()
-    { 
-      if(analogRead(switch_brake) >= 1000) //브레이크 밟힘
-        digitalWrite(EN, LOW);
-      else
-        digitalWrite(EN, HIGH);
-    }
+void Brake()
+{ 
+  if(analogRead(switch_brake) >= 1000) //브레이크 밟힘
+    digitalWrite(EN, LOW);
+  else
+    digitalWrite(EN, HIGH);
+}
     
-    void motor_()
-    {
-      Set_speed(analogRead(speed_pin));
-      analogWrite(motor_out, speed_m);
-    }
+void motor_()
+{
+  Set_speed(analogRead(speed_pin));
+  analogWrite(motor_out, speed_m);
+}
 
-    
-    void Mode_1()
-    {
-      FB_control(1);
-    }
-    
-}Motor;
+int mode_set(char data)
+{
+  if(data == 'z')
+    return 1;
+  else if (data == 'x')
+    return 2;
+  else if (data == 'c')
+    return 3;
+  else
+    return 4;
+}
+
 
 
 void setup() {
   BTserial.begin(9600);
   Serial.begin(9600);
  
-  Motor.set_pin();
+  set_pin();
 }
 
+int mode = 1;
+
 void loop() {
-  if(BT_serial.available())
+  char bt_data;
+  if(BTserial.available())
   {
+    bt_data = BTserial.read();
+
+    if(mode_set(bt_data) == 1)
+    {
+      mode = 1;
+      Serial.println("mode 1");
+    }
+    else if(mode_set(bt_data) == 2)
+    {
+      mode = 2;
+      Serial.println("mode 2");
+    }
+    else if(mode_set(bt_data) == 3)
+    {
+      mode = 3;
+      Serial.println("mode 3");
+    }
+    else //컨트롤 부분
+    {
+      Serial.print("message : ");
+      Serial.println(bt_data);
+      if(mode == 1)
+      {
+        Brake();
+        FB_control(1);
+      }
+      else if(mode == 2)
+      {
+        if(bt_data == 'w') //전진 버튼
+        {
+          Serial.println("FORWARD");
+          FB_control(2);
+          Set_speed(100);
+          delay(1000);
+          Set_speed(0);
+        }
+        else if(bt_data == 'a') //왼쪽 버튼
+        {
+          Serial.println("LEFT");
+        }
+        else if(bt_data == 'd') //오른쪽 버튼
+        {
+          Serial.println("RIGHT");
+        }
+        else if(bt_data == 's') //후진 버튼
+        {
+          Serial.println("BACKWARD");
+          FB_control(3);
+          Set_speed(100);
+          delay(1000);
+          Set_speed(0);
+        } 
+      }
+//      else
+//      {
     
+//      }
+    } 
   }
+  
 }
