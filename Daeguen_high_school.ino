@@ -3,7 +3,7 @@
  * Serial + Communicating with bluetooth + Motor
  * 
  * pin 11, 10     >> 블루투스
- * pin 2, 3, 4, 5 >> 스탭모터 제어 핀
+ * pin 5, 6, 7 >> 스탭모터 제어 핀
  * pin A0         >> 가변저항 핀 >> 모터 속도 제어
  * pin A1         >> 스위치 핀   >> 브레이크 스위치
  * pin A2         >> 스위치 핀   >> 전후진 스위치
@@ -26,9 +26,12 @@
 #define rx 10
 #define tx 11
 
-#define motor_out 2
-#define FB_out 3
+
+#define FB_out 2
+#define motor_out 3
 #define brake_out 4
+
+#define steeper_en 8
 
 SoftwareSerial BTserial(rx, tx);
 
@@ -41,11 +44,34 @@ int speed_m;
 int switch_brake;
 int switch_FB;
 
+
+void stepping(int arr, int deg)
+{
+  digitalWrite(DIR, LOW);
+  for(int i = 0; i <= deg; i++)
+  {
+    digitalWrite(STP, HIGH);
+    delayMicroseconds(100);
+    digitalWrite(STP, LOW);
+  }
+  delay(1000);
+  digitalWrite(DIR, HIGH);
+  for(int i = 0; i <= deg; i++)
+  {
+    digitalWrite(STP, HIGH);
+    delayMicroseconds(100);
+    digitalWrite(STP, LOW);
+  }
+}
+
 void set_pin()
 {
   pinMode(DIR, OUTPUT);
   pinMode(STP, OUTPUT);
   pinMode(EN, OUTPUT);
+  pinMode(FB_out, OUTPUT);
+  pinMode(motor_out, OUTPUT);
+  pinMode(brake_out, OUTPUT);
 }
 
     
@@ -59,8 +85,10 @@ void FB_control(int mode)
 {
   if(mode == 1)
   {
-    if(analogRead(FB_pin) >= 1000) //전진 스위치 on
+    if(analogRead(FB_pin) >= 1020) //전진 스위치 on
+    {
       digitalWrite(DIR, HIGH);
+    }
     else                           //후진 상태
       digitalWrite(DIR, LOW);  
   }
@@ -72,10 +100,10 @@ void FB_control(int mode)
 
 void Brake()
 { 
-  if(analogRead(switch_brake) >= 1000) //브레이크 밟힘
-    digitalWrite(EN, LOW);
+  if(analogRead(brake_pin) >= 1020) //브레이크 밟힘
+
   else
-    digitalWrite(EN, HIGH);
+
 }
     
 void motor_()
@@ -101,14 +129,22 @@ int mode_set(char data)
 void setup() {
   BTserial.begin(9600);
   Serial.begin(9600);
- 
   set_pin();
 }
 
 int mode = 1;
 
 void loop() {
+  delay(10);
   char bt_data;
+
+  if(mode == 1)
+  {
+
+    Brake();
+    FB_control(1);
+  }
+      
   if(BTserial.available())
   {
     bt_data = BTserial.read();
@@ -132,12 +168,8 @@ void loop() {
     {
       Serial.print("message : ");
       Serial.println(bt_data);
-      if(mode == 1)
-      {
-        Brake();
-        FB_control(1);
-      }
-      else if(mode == 2)
+      
+      if(mode == 2)
       {
         if(bt_data == 'w') //전진 버튼
         {
@@ -150,10 +182,12 @@ void loop() {
         else if(bt_data == 'a') //왼쪽 버튼
         {
           Serial.println("LEFT");
+          stepping(1, 3000);
         }
         else if(bt_data == 'd') //오른쪽 버튼
         {
           Serial.println("RIGHT");
+          stepping(0, 3000);
         }
         else if(bt_data == 's') //후진 버튼
         {
@@ -170,5 +204,4 @@ void loop() {
 //      }
     } 
   }
-  
 }
