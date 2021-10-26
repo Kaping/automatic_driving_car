@@ -31,7 +31,7 @@
 #define motor_out 3
 #define brake_out 4
 
-#define steeper_en 8
+#define stepper_en 8
 
 SoftwareSerial BTserial(rx, tx);
 
@@ -47,21 +47,19 @@ int switch_FB;
 
 void stepping(int arr, int deg)
 {
-  digitalWrite(DIR, LOW);
+
+  if(arr == 1)
+    digitalWrite(DIR, LOW);  
+  else
+    digitalWrite(DIR, HIGH);  
   for(int i = 0; i <= deg; i++)
   {
+    delayMicroseconds(100);
     digitalWrite(STP, HIGH);
     delayMicroseconds(100);
     digitalWrite(STP, LOW);
   }
-  delay(1000);
-  digitalWrite(DIR, HIGH);
-  for(int i = 0; i <= deg; i++)
-  {
-    digitalWrite(STP, HIGH);
-    delayMicroseconds(100);
-    digitalWrite(STP, LOW);
-  }
+
 }
 
 void set_pin()
@@ -72,12 +70,21 @@ void set_pin()
   pinMode(FB_out, OUTPUT);
   pinMode(motor_out, OUTPUT);
   pinMode(brake_out, OUTPUT);
+  pinMode(stepper_en, OUTPUT);
+  pinMode(13,OUTPUT);
+  
+  digitalWrite(EN, HIGH);
+  digitalWrite(FB_out, HIGH);
+  digitalWrite(brake_out, LOW);
+  digitalWrite(stepper_en, HIGH);
 }
+
 
     
 void Set_speed(int v)
 {
   speed_m = v;
+  analogWrite(motor_out, v);
 }
 
     
@@ -85,25 +92,25 @@ void FB_control(int mode)
 {
   if(mode == 1)
   {
-    if(analogRead(FB_pin) >= 1020) //전진 스위치 on
+    if(analogRead(FB_pin) >= 1000) //전진 스위치 on
     {
-      digitalWrite(DIR, HIGH);
+      digitalWrite(FB_out, HIGH);
     }
     else                           //후진 상태
-      digitalWrite(DIR, LOW);  
+      digitalWrite(FB_out, LOW);  
   }
   else if (mode == 2)
-    digitalWrite(DIR, HIGH);
-  else if (mode == 3)
-    digitalWrite(DIR, LOW);
+    digitalWrite(FB_out, HIGH);
+  else
+    digitalWrite(FB_out, LOW);
 }
 
 void Brake()
 { 
-  if(analogRead(brake_pin) >= 1020) //브레이크 밟힘
-
+  if(brake_pin >= 1000)
+    digitalWrite(brake_out, HIGH);
   else
-
+    digitalWrite(brake_out, LOW);
 }
     
 void motor_()
@@ -130,21 +137,66 @@ void setup() {
   BTserial.begin(9600);
   Serial.begin(9600);
   set_pin();
+  Serial.setTimeout(200);
 }
 
 int mode = 1;
+int steer = 0;
+char bt_data;
+char data;
+
+
 
 void loop() {
-  delay(10);
-  char bt_data;
-
+    
+    if(mode == 3)
+    {
+      if(Serial.available() > 0)
+      {
+        data = Serial.read();
+        
+        if(data == 'w')
+        {
+          FB_control(3);
+          //digitalWrite(brake_out, LOW);     
+          //Set_speed(70);
+          digitalWrite(13,LOW);
+        }
+        if(data == 'a' && steer <= 9)
+        {
+          if (steer <= 8){
+            FB_control(3);
+            stepping(1, 700);
+            digitalWrite(13,HIGH);
+            steer ++; 
+          }
+        }
+        if(data == 'd' && steer >= -9)
+        {
+          if (steer >= -8){
+            FB_control(2);
+            stepping(0, 700);
+            digitalWrite(13,LOW);
+            steer --;
+          }
+        }
+        if(data == 's')
+        {
+          Set_speed(0);
+          digitalWrite(brake_out, HIGH);
+          digitalWrite(13,HIGH);     
+        }   
+        data = -99;
+      }
+    }   
+  
   if(mode == 1)
   {
-
-    Brake();
     FB_control(1);
+    digitalWrite(stepper_en, LOW);
   }
-      
+  
+    
   if(BTserial.available())
   {
     bt_data = BTserial.read();
@@ -152,56 +204,62 @@ void loop() {
     if(mode_set(bt_data) == 1)
     {
       mode = 1;
-      Serial.println("mode 1");
+      digitalWrite(stepper_en, LOW);
+      Serial.println("0");
     }
     else if(mode_set(bt_data) == 2)
     {
       mode = 2;
-      Serial.println("mode 2");
+      digitalWrite(stepper_en, HIGH);  
+      Serial.println("0");
     }
     else if(mode_set(bt_data) == 3)
     {
+      steer = 0;
       mode = 3;
-      Serial.println("mode 3");
+      digitalWrite(stepper_en, HIGH);
+      Serial.println("1");
     }
+    
     else //컨트롤 부분
     {
-      Serial.print("message : ");
-      Serial.println(bt_data);
       
       if(mode == 2)
       {
         if(bt_data == 'w') //전진 버튼
         {
-          Serial.println("FORWARD");
-          FB_control(2);
-          Set_speed(100);
-          delay(1000);
+          FB_control(3);
+          digitalWrite(brake_out, LOW);     
+          Set_speed(80);
+          delay(1500);
           Set_speed(0);
+          digitalWrite(brake_out, HIGH);
         }
         else if(bt_data == 'a') //왼쪽 버튼
         {
-          Serial.println("LEFT");
+         
           stepping(1, 3000);
         }
         else if(bt_data == 'd') //오른쪽 버튼
         {
-          Serial.println("RIGHT");
+         
           stepping(0, 3000);
         }
         else if(bt_data == 's') //후진 버튼
         {
-          Serial.println("BACKWARD");
-          FB_control(3);
-          Set_speed(100);
-          delay(1000);
+         
+          FB_control(2);
+          digitalWrite(brake_out, LOW);     
+          Set_speed(90);
+          delay(1500);
           Set_speed(0);
+          digitalWrite(brake_out, HIGH);
+          
         } 
       }
-//      else
-//      {
-    
-//      }
-    } 
+
+    }
+
+     
   }
 }
