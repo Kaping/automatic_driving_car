@@ -1,16 +1,4 @@
-/*
- * arduino
- * Serial + Communicating with bluetooth + Motor
- * 
- * pin 11, 10     >> 블루투스
- * pin 5, 6, 7 >> 스탭모터 제어 핀
- * pin A0         >> 가변저항 핀 >> 모터 속도 제어
- * pin A1         >> 스위치 핀   >> 브레이크 스위치
- * pin A2         >> 스위치 핀   >> 전후진 스위치
- * 
- * 
- * ************노트로 손코딩 하는중*********
- */
+
 
 #include <SoftwareSerial.h>
 
@@ -138,6 +126,7 @@ void setup() {
   Serial.begin(9600);
   set_pin();
   Serial.setTimeout(200);
+  BTserial.setTimeout(200);
 }
 
 int mode = 1;
@@ -158,24 +147,22 @@ void loop() {
         if(data == 'w')
         {
           FB_control(3);
-          //digitalWrite(brake_out, LOW);     
-          //Set_speed(70);
+          digitalWrite(brake_out, LOW);     
+          Set_speed(85);
           digitalWrite(13,LOW);
         }
-        if(data == 'a' && steer <= 9)
+        if(data == 'a' && steer <= 10)
         {
-          if (steer <= 8){
-            FB_control(3);
-            stepping(1, 700);
+          if (steer <= 9){
+            stepping(0, 700);
             digitalWrite(13,HIGH);
             steer ++; 
           }
-        }
-        if(data == 'd' && steer >= -9)
+          }
+        if(data == 'd' && steer >= -10)
         {
-          if (steer >= -8){
-            FB_control(2);
-            stepping(0, 700);
+          if (steer >= -9){
+            stepping(1, 700);
             digitalWrite(13,LOW);
             steer --;
           }
@@ -192,7 +179,19 @@ void loop() {
   
   if(mode == 1)
   {
-    FB_control(1);
+    int sp = map(analogRead(A3), 0, 900, 50, 90);
+    
+    if(analogRead(FB_pin) >= 900)
+      FB_control(3);
+    else
+      FB_control(2);
+      
+    if(analogRead(brake_pin) >= 900)
+      digitalWrite(brake_out, HIGH);
+    else
+      digitalWrite(brake_out, LOW);
+      
+    Set_speed(sp);
     digitalWrite(stepper_en, LOW);
   }
   
@@ -230,8 +229,8 @@ void loop() {
         {
           FB_control(3);
           digitalWrite(brake_out, LOW);     
-          Set_speed(80);
-          delay(1500);
+          Set_speed(90);
+          delay(1000);
           Set_speed(0);
           digitalWrite(brake_out, HIGH);
         }
@@ -251,7 +250,7 @@ void loop() {
           FB_control(2);
           digitalWrite(brake_out, LOW);     
           Set_speed(90);
-          delay(1500);
+          delay(1000);
           Set_speed(0);
           digitalWrite(brake_out, HIGH);
           
